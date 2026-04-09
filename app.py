@@ -5,9 +5,10 @@ from datetime import timedelta
 from pathlib import Path
 import time
 
+st.set_page_config(page_title="AI文案生成器", layout="centered")
+
 DATA_FILE = Path("user_data.json")
 
-# 密钥从Secrets读取（安全）
 WECHAT_APPID = st.secrets["WECHAT_APPID"]
 WECHAT_SECRET = st.secrets["WECHAT_SECRET"]
 WECHAT_OPENID = st.secrets["WECHAT_OPENID"]
@@ -17,18 +18,18 @@ ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 
 DEEPSEEK_URL = "https://api.deepseek.com/v1"
 
-# ==============================================
-# 通用：读取 / 保存数据
-# ==============================================
 def load_data():
     if DATA_FILE.exists():
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if "users" not in data: data["users"] = {}
-        if "pay_applies" not in data: data["pay_applies"] = []
-        if "suggestions" not in data: data["suggestions"] = []
+        if "users" not in data:
+            data["users"] = {}
+        if "pay_applies" not in data:
+            data["pay_applies"] = []
+        if "suggestions" not in data:
+            data["suggestions"] = []
         return data
-    return {"users": {},"pay_applies": [],"suggestions": []}
+    return {"users": {}, "pay_applies": [], "suggestions": []}
 
 def save_data(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -36,31 +37,21 @@ def save_data(data):
 
 data = load_data()
 
-# ==============================================
-# 页面菜单（用户端 / 管理员后台 二合一）
-# ==============================================
 st.sidebar.title("📌 菜单")
 page = st.sidebar.radio("选择页面", ["用户端", "管理员后台"])
 
-st.set_page_config(page_title="AI文案生成器", layout="centered")
-
-# ==============================================
-# 页面1：用户端
-# ==============================================
 if page == "用户端":
     st.title("✨ AI小红书爆款文案生成器")
 
-    # 登录状态
     if "login_phone" not in st.session_state:
         st.session_state.login_phone = None
     current_phone = st.session_state.login_phone
 
-    # 登录注册
     if not current_phone:
         tab1, tab2 = st.tabs(["登录", "注册"])
         with tab1:
-            phone_login = st.text_input("手机号")
-            pwd_login = st.text_input("密码", type="password")
+            phone_login = st.text_input("手机号", key="login_phone")
+            pwd_login = st.text_input("密码", type="password", key="login_pwd")
             if st.button("登录"):
                 if phone_login in data["users"] and data["users"][phone_login]["pwd"] == pwd_login:
                     st.session_state.login_phone = phone_login
@@ -69,11 +60,16 @@ if page == "用户端":
                 else:
                     st.error("账号或密码错误")
         with tab2:
-            phone_reg = st.text_input("手机号")
-            pwd_reg = st.text_input("密码", type="password")
+            phone_reg = st.text_input("手机号", key="reg_phone")
+            pwd_reg = st.text_input("密码", type="password", key="reg_pwd")
             if st.button("注册"):
                 if len(phone_reg) == 11 and phone_reg.isdigit() and phone_reg not in data["users"]:
-                    data["users"][phone_reg] = {"pwd": pwd_reg,"free_count": 0,"is_paid": False,"expire_time": None}
+                    data["users"][phone_reg] = {
+                        "pwd": pwd_reg,
+                        "free_count": 0,
+                        "is_paid": False,
+                        "expire_time": None
+                    }
                     save_data(data)
                     st.success("注册成功")
                 else:
@@ -82,7 +78,6 @@ if page == "用户端":
 
     user = data["users"][current_phone]
 
-    # 检查会员过期
     def check_expire():
         if user["expire_time"]:
             now = datetime.datetime.now()
@@ -98,10 +93,13 @@ if page == "用户端":
     can_use = user["is_paid"] or user["free_count"] < FREE_TRIAL_LIMIT
 
     st.subheader(f"你好：{current_phone}")
-    product = st.text_input("产品名称")
-    desc = st.text_area("产品描述")
-    keywords = st.text_input("关键词")
-    style = st.selectbox("风格", ["闺蜜风","学霸风","真实测评","干货种草风","热门爆款风","避坑吐槽风"])
+    product = st.text_input("产品名称", key="product")
+    desc = st.text_area("产品描述", key="desc")
+    keywords = st.text_input("关键词", key="keywords")
+    style = st.selectbox("风格", [
+        "闺蜜风", "学霸风", "真实测评",
+        "干货种草风", "热门爆款风", "避坑吐槽风"
+    ], key="style")
 
     if not user["is_paid"]:
         if user["free_count"] < FREE_TRIAL_LIMIT:
@@ -129,7 +127,10 @@ if page == "用户端":
 描述：{desc}
 关键词：{keywords}
 要求口语化、带表情、段落简短、直接输出"""
-                res = client.chat.completions.create(model="deepseek-chat", messages=[{"role":"user","content":prompt}])
+                res = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[{"role": "user", "content": prompt}]
+                )
                 st.success("生成成功！")
                 st.write(res.choices[0].message.content)
                 if not user["is_paid"]:
@@ -140,19 +141,19 @@ if page == "用户端":
 
     st.divider()
     st.subheader("💬 建议反馈")
-    suggest_content = st.text_area("输入建议")
+    suggest_content = st.text_area("输入建议", key="suggest")
     if st.button("📩 提交建议"):
         if suggest_content.strip():
             t = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             data["suggestions"].append({
-                "phone": current_phone, "content": suggest_content, "time": t, "read": False
+                "phone": current_phone,
+                "content": suggest_content,
+                "time": t,
+                "read": False
             })
             save_data(data)
             st.success("提交成功！")
 
-# ==============================================
-# 页面2：管理员后台
-# ==============================================
 elif page == "管理员后台":
     st.title("🔑 管理员后台")
 
@@ -160,7 +161,7 @@ elif page == "管理员后台":
         st.session_state.admin_logged = False
 
     if not st.session_state.admin_logged:
-        pwd = st.text_input("管理员密码", type="password")
+        pwd = st.text_input("管理员密码", type="password", key="admin_pwd")
         if st.button("登录"):
             if pwd == ADMIN_PASSWORD:
                 st.session_state.admin_logged = True
@@ -176,7 +177,6 @@ elif page == "管理员后台":
         st.session_state.admin_logged = False
         st.rerun()
 
-    # 付款审核
     st.subheader("📥 待审核付款")
     if not data["pay_applies"]:
         st.info("暂无申请")
@@ -184,41 +184,43 @@ elif page == "管理员后台":
         for i, item in enumerate(data["pay_applies"]):
             st.markdown(f"**{item['phone']}**　{item['apply_time']}")
             c1, c2 = st.columns(2)
-            if c1.button(f"同意✅ {i}"):
+            if c1.button(f"同意✅ {i}", key=f"agree_{i}"):
                 if item["phone"] in data["users"]:
                     u = data["users"][item["phone"]]
                     u["is_paid"] = True
-                    u["expire_time"] = (datetime.datetime.now()+timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+                    u["expire_time"] = (datetime.datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
                 data["pay_applies"].pop(i)
                 save_data(data)
                 st.rerun()
-            if c2.button(f"拒绝❌ {i}"):
+            if c2.button(f"拒绝❌ {i}", key=f"reject_{i}"):
                 data["pay_applies"].pop(i)
                 save_data(data)
                 st.rerun()
             st.divider()
 
-    # 建议
     st.subheader("💬 用户建议")
-    sf = st.radio("筛选", ["全部","未读","已读"], horizontal=1)
+    sf = st.radio("筛选", ["全部", "未读", "已读"], horizontal=1, key="suggest_filter")
     sl = data["suggestions"]
     fl = sl
-    if sf == "未读": fl = [x for x in sl if not x.get("read")]
-    if sf == "已读": fl = [x for x in sl if x.get("read")]
-    for s in fl:
-        st.markdown(f"**{s['phone']}**　{s['time']}　{'🔴未读'if not s.get('read')else'🟢已读'}")
+    if sf == "未读":
+        fl = [x for x in sl if not x.get("read")]
+    if sf == "已读":
+        fl = [x for x in sl if x.get("read")]
+    for idx, s in enumerate(fl):
+        st.markdown(f"**{s['phone']}**　{s['time']}　{'🔴未读' if not s.get('read') else '🟢已读'}")
         st.write(f"> {s['content']}")
-        if st.button("标为已读", key=s):
-            sl[sl.index(s)]["read"]=1
+        if st.button("标为已读", key=f"read_{idx}"):
+            sl[idx]["read"] = True
             save_data(data)
             st.rerun()
         st.divider()
 
-    # 用户列表
     st.subheader("👥 用户列表")
-    ft = st.radio("筛选用户", ["全部","已付款","未付款"], horizontal=1)
+    ft = st.radio("筛选用户", ["全部", "已付款", "未付款"], horizontal=1, key="user_filter")
     ul = data["users"]
     show = ul
-    if ft == "已付款": show={k:v for k,v in ul.items() if v.get("is_paid")}
-    if ft == "未付款": show={k:v for k,v in ul.items() if not v.get("is_paid")}
+    if ft == "已付款":
+        show = {k: v for k, v in ul.items() if v.get("is_paid")}
+    if ft == "未付款":
+        show = {k: v for k, v in ul.items() if not v.get("is_paid")}
     st.write(show)
