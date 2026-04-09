@@ -129,4 +129,4 @@ filtered_users = {}
 if filter_opt == "全部": filtered_users = users
 elif filter_opt == "已付款": filtered_users = {k: v for k, v in users.items() if v.get("is_paid")}
 elif filter_opt == "未付款": filtered_users = {k: v for k, v in users.items() if not v.get("is_paid")}
-st.dataframe(filtered_users)
+st.write(filtered_users)
