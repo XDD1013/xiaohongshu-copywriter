@@ -3,7 +3,6 @@ import json
 import datetime
 from datetime import timedelta
 from pathlib import Path
-import time
 import requests
 
 st.set_page_config(page_title="AI文案生成器", layout="centered")
@@ -39,7 +38,8 @@ def send_wechat_notify(phone):
     try:
         content = f"用户【{phone}】已提交付款申请，请尽快处理"
         requests.post(PUSH_URL, json={"token": PUSH_TOKEN,"title": "💰 新付款申请","content": content})
-    except: pass
+    except:
+        pass
 
 data = load_data()
 
@@ -55,22 +55,21 @@ if page == "用户端":
     if "login_phone" not in st.session_state:
         st.session_state.login_phone = None
 
-    # 🔥 强制登录：未登录绝对进不去
     if not st.session_state.login_phone:
         tab1, tab2 = st.tabs(["登录", "注册"])
         with tab1:
-            phone_login = st.text_input("手机号")
-            pwd_login = st.text_input("密码", type="password")
-            if st.button("登录"):
+            phone_login = st.text_input("手机号", key="ul1")
+            pwd_login = st.text_input("密码", type="password", key="up1")
+            if st.button("登录", key="ub1"):
                 if phone_login in data["users"] and data["users"][phone_login]["pwd"] == pwd_login:
                     st.session_state.login_phone = phone_login
                     st.rerun()
                 else:
                     st.error("账号或密码错误")
         with tab2:
-            phone_reg = st.text_input("新手机号")
-            pwd_reg = st.text_input("新密码", type="password")
-            if st.button("注册"):
+            phone_reg = st.text_input("手机号", key="ul2")
+            pwd_reg = st.text_input("密码", type="password", key="up2")
+            if st.button("注册", key="ub2"):
                 if len(phone_reg) == 11 and phone_reg not in data["users"]:
                     data["users"][phone_reg] = {"pwd": pwd_reg,"free_count": 0,"is_paid": False,"expire_time": None}
                     save_data(data)
@@ -82,7 +81,6 @@ if page == "用户端":
     current_phone = st.session_state.login_phone
     user = data["users"][current_phone]
 
-    # 过期检查
     if user["expire_time"]:
         try:
             now = datetime.datetime.now()
@@ -91,9 +89,9 @@ if page == "用户端":
                 user["is_paid"] = False
                 user["expire_time"] = None
                 save_data(data)
-        except: pass
+        except:
+            pass
 
-    # 显示会员时间
     st.subheader(f"你好：{current_phone}")
     if user["is_paid"] and user["expire_time"]:
         st.success(f"✅ 会员已开通\n⏳ 到期时间：{user['expire_time']}")
@@ -103,10 +101,10 @@ if page == "用户端":
     FREE_TRIAL_LIMIT = 3
     can_use = user["is_paid"] or user["free_count"] < FREE_TRIAL_LIMIT
 
-    product = st.text_input("产品名称")
-    desc = st.text_area("产品描述")
-    keywords = st.text_input("关键词")
-    style = st.selectbox("风格", ["闺蜜风","学霸风","真实测评","干货种草风","热门爆款风","避坑吐槽风"])
+    product = st.text_input("产品名称", key="p1")
+    desc = st.text_area("产品描述", key="d1")
+    keywords = st.text_input("关键词", key="k1")
+    style = st.selectbox("风格", ["闺蜜风","学霸风","真实测评","干货种草风","热门爆款风","避坑吐槽风"], key="s1")
 
     if not user["is_paid"]:
         if user["free_count"] < FREE_TRIAL_LIMIT:
@@ -116,13 +114,14 @@ if page == "用户端":
             st.markdown("# 💰 9.9元/30天")
             st.image("wechat.jpg", width=300)
             st.warning("付款备注手机号！")
-            if st.button("✅ 我已支付，申请开通"):
-                data["pay_applies"].append({"phone": current_phone,"apply_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+            if st.button("✅ 我已支付，申请开通", key="pay1"):
+                t = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                data["pay_applies"].append({"phone": current_phone,"apply_time": t})
                 save_data(data)
                 send_wechat_notify(current_phone)
                 st.success("提交成功！已微信通知我~")
 
-    if can_use and st.button("🔥 生成文案"):
+    if can_use and st.button("🔥 生成文案", key="gen1"):
         if not product:
             st.warning("请输入产品名")
         else:
@@ -141,23 +140,25 @@ if page == "用户端":
 
     st.divider()
     st.subheader("💬 建议反馈")
-    sug = st.text_area("输入建议")
-    if st.button("📩 提交建议"):
+    sug = st.text_area("输入建议", key="sug1")
+    if st.button("📩 提交建议", key="subsug1"):
         if sug.strip():
-            data["suggestions"].append({"phone":current_phone,"content":sug,"time":datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),"read":False})
+            t = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            data["suggestions"].append({"phone":current_phone,"content":sug,"time":t,"read":False})
             save_data(data)
             st.success("提交成功！")
 
 # ==========================
-# 管理员
+# 管理员后台
 # ==========================
 elif page == "管理员后台":
     st.title("🔑 管理员后台")
-    if "admin_logged" not in st.session_state: st.session_state.admin_logged = False
+    if "admin_logged" not in st.session_state:
+        st.session_state.admin_logged = False
 
     if not st.session_state.admin_logged:
-        pwd = st.text_input("管理员密码", type="password")
-        if st.button("登录"):
+        pwd = st.text_input("管理员密码", type="password", key="ap1")
+        if st.button("登录", key="ab1"):
             if pwd == ADMIN_PASSWORD:
                 st.session_state.admin_logged = True
                 st.rerun()
@@ -166,37 +167,53 @@ elif page == "管理员后台":
         st.stop()
 
     st.success("✅ 已登录")
-    if st.button("🔄 刷新"): st.rerun()
-    if st.button("🚪 退出"):
-        st.session_state.admin_logged = False
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 刷新", key="rf1"):
+            st.rerun()
+    with col2:
+        if st.button("🚪 退出", key="lo1"):
+            st.session_state.admin_logged = False
+            st.rerun()
 
     st.subheader("📥 待审核付款")
-    for i, item in enumerate(data["pay_applies"]):
-        st.write(f"{item['phone']} | {item['apply_time']}")
-        c1,c2 = st.columns(2)
-        if c1.button(f"同意{i}"):
-            if item['phone'] in data['users']:
-                u = data['users'][item['phone']]
-                u['is_paid']=True
-                u['expire_time']=(datetime.datetime.now()+timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
-            data['pay_applies'].pop(i)
-            save_data(data)
-            st.rerun()
-        if c2.button(f"拒绝{i}"):
-            data['pay_applies'].pop(i)
-            save_data(data)
-            st.rerun()
-        st.divider()
+    if not data["pay_applies"]:
+        st.info("暂无付款申请")
+    else:
+        for i, item in enumerate(data["pay_applies"]):
+            st.write(f"👤 {item['phone']} | ⏰ {item['apply_time']}")
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button(f"✅ 同意", key=f"ag{i}"):
+                    if item['phone'] in data['users']:
+                        u = data['users'][item['phone']]
+                        u['is_paid']=True
+                        u['expire_time']=(datetime.datetime.now()+timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+                    data['pay_applies'].pop(i)
+                    save_data(data)
+                    st.rerun()
+            with c2:
+                if st.button(f"❌ 拒绝", key=f"rj{i}"):
+                    data['pay_applies'].pop(i)
+                    save_data(data)
+                    st.rerun()
+            st.divider()
 
-    st.subheader("💬 建议")
-    for s in data["suggestions"]:
-        st.write(f"{s['phone']} | {s['time']} | {s['content']}")
-        if st.button("标为已读"):
-            s["read"]=True
-            save_data(data)
-            st.rerun()
-        st.divider()
+    st.subheader("💬 用户建议")
+    suggestions = data["suggestions"]
+    if not suggestions:
+        st.info("暂无建议")
+    else:
+        for idx, s in enumerate(suggestions):
+            real = data["suggestions"][idx]
+            status = "🔴 未读" if not real.get("read") else "🟢 已读"
+            st.write(f"👤 {real['phone']} | ⏰ {real['time']} | 💬 {real['content']} | {status}")
+            if not real.get("read"):
+                if st.button("✅ 标为已读", key=f"mr{idx}"):
+                    real["read"] = True
+                    save_data(data)
+                    st.rerun()
+            st.divider()
 
-    st.subheader("👥 用户")
-    st.write(data["users"])
+    st.subheader("👥 用户列表")
+    st.json(data["users"], expanded=True)
